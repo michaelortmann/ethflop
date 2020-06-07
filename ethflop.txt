@@ -22,7 +22,7 @@ Compared to EtherDFS*, what are the downsides of using ethflop?
  - a virtual floppy disk can be used only by one machine at a time (unless
    the virtual floppy is inserted as 'read-only')
  - the available space on a floppy is (obviously) limited, although ethflop
-   supports virtual floppies of up to 15.5M, which is quite a lot of space
+   supports virtual floppies of up to 31M, which is quite a lot of space
 
 On the upside, ethflop is significantly smaller than EtherDFS (2K resident, vs
 7K), it is much more transparent to the operating system and applications

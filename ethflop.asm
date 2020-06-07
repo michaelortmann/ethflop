@@ -529,6 +529,8 @@ ret
 ; ============================================================================
 ; === THIS IS WHERE THE PROGRAM STARTS WHEN EXECUTED FROM COMMAND LINE =======
 ; ============================================================================
+SRVSIDEQUERIES db "deilnr"  ; arguments that are meant for a srv-side query
+SRVSIDEQUERIESLEN equ 6
 PROGSTART:
 
 cld    ; clear direction flag so all lodsb-like ops move forward
@@ -564,6 +566,14 @@ jz HELP         ; if so, skip this check and go to help right away
 mov si, 81h     ; otherwise scan argument for anything that is not a space
 .nextbyte:
 lodsb  ; load byte at DS:[SI] into AL, increment SI
+; convert AL into lower case for further matching
+cmp al, 'A'
+jb short .locasegood
+cmp al, 'Z'
+ja short .locasegood
+or al, 0x20  ; set char to upcase
+.locasegood:
+; match action
 cmp al, 'u'  ; 'u' -> jump to unload
 je UNLOADTSR
 cmp al, 'a'  ; 'a' -> jump to install (set drive to A:)
@@ -575,19 +585,11 @@ je INSTALLTSR
 cmp al, 's'  ; 's' -> jump to status
 je DISPLAYSTATUS
 ; test for server-side queries
-cmp al, 'i'
-je SERVERSIDEQUERY
-cmp al, 'r'
-je SERVERSIDEQUERY
-cmp al, 'e'
-je SERVERSIDEQUERY
-cmp al, 'n'
-je SERVERSIDEQUERY
-cmp al, 'l'
-je SERVERSIDEQUERY
-cmp al, 'd'
-je SERVERSIDEQUERY
-; test al for space
+mov cx, SRVSIDEQUERIESLEN
+mov di, SRVSIDEQUERIES
+repne scasb   ; cmp al, [ES:DI++]  (repeat CX times or until match)
+je short SERVERSIDEQUERY ; do we have a match? yes -> srvside query
+; last test - is al a space?
 cmp al, ' '
 loopz .nextbyte ; if a non-space char is present, print help
 ; no match? go to hell(p)
@@ -796,7 +798,7 @@ mov cx, 5
 cld                ; cmpsb will move forward
 repe cmpsb         ; compares CX bytes at ES:DI and DS:SI, CX is 0 if matching
 clc                ; assume success
-jcxz .FINDTSRFOUND ; jump if sig matched
+je short .FINDTSRFOUND ; jump if sig matched
 stc
 .FINDTSRFOUND:
 ret
@@ -1031,7 +1033,7 @@ ret
 ; === STRINGS USED BY THE TRANSIENT LOADER ===================================
 ; ============================================================================
 ; (no need to declare a .data section, tiny model imples DS == CS anyway)
-STR_HELP db "ethflop v0.6m - a floppy drive emulator over Ethernet", 13, 10,\
+STR_HELP db "ethflop v0.7m - a floppy drive emulator over Ethernet", 13, 10,\
             "Copyright (C) 2019 Mateusz Viste, 2020 Michael Ortmann", 13, 10, 10,\
             "=== USAGE ====================================================================", 13, 10,\
             "ethflop a           installs the ethflop TSR as A:", 13, 10,\
@@ -1040,8 +1042,8 @@ STR_HELP db "ethflop v0.6m - a floppy drive emulator over Ethernet", 13, 10,\
             "ethflop ip DSKNAME  same as 'i', but the inserted floppy is WRITE PROTECTED", 13, 10,\
             "ethflop r OLD NEW   renames virt. floppy 'OLD' to 'NEW'", 13, 10,\
             "ethflop e           'ejects' currently loaded virtual floppy", 13, 10,\
-            "ethflop nSZ DSKNAME creates a new virt. floppy DSKNAME, SZ KB big. SZ can be:", 13, 10,\
-            "                    360, 720, 1200, 1440, 2880, 4800, 8100, 9600, 15500, 31000", 13, 10,\
+            "ethflop nSZ DSKNAME creates a new virtual floppy DSKNAME, SZ kB big", 13, 10,\
+            "                    run 'ethflop n' for the list of available formats", 13, 10,\
             "ethflop l           displays the list of available virt. floppies", 13, 10,\
             "ethflop d DISKNAME  DELETES virt. floppy named DISKNAME - BE CAREFUL!", 13, 10,\
             "ethflop s           displays current status of the ethflop TSR", 13, 10,\

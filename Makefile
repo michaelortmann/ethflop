@@ -30,7 +30,7 @@ test: test.c
 
 pkg: tsr
 	rm -f ethflop-*.zip
-	zip -9 -K ethflop-`date +%Y%m%d`.zip ethflop.com ethflop.asm ethflop.txt Makefile ethflopd.c
+	zip -9 -K ethflop-`date +%Y%m%d`.zip ethflop.com ethflop.asm ethflop.txt history.txt Makefile ethflopd.c
 
 clean:
 	rm -f ethflopd ethflop.com *.o *.zip *.lst

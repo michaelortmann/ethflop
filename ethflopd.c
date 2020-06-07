@@ -42,7 +42,7 @@
 #include <unistd.h>          /* close(), getopt(), optind */
 
 /* program version */
-#define PVER "20191003m"
+#define PVER "20191006m"
 
 /* set to 1 to enable DEBUG mode */
 #define DEBUG 0
@@ -97,18 +97,21 @@ static const struct {
   unsigned char clustersz;      /* cluster size, in sectors (FAT12 supports up to 4084 clusters) */
   unsigned char fatsz;          /* single FAT size, in sectors */
   int totsectors;               /* total sectors count */
+  char *description;            /* human description, used for the help message */
   /*              MD  sect trk hd root clustsz fatsz totsectors */
-} FDPARMS[] = {{0xFD,  9,  40, 2, 112,     2,    2,       720},  /* 360K  */
-               {0xF9,  9,  80, 2, 112,     2,    3,      1440},  /* 720K  */
-               {0xF9, 15,  80, 2, 224,     1,    7,      2400},  /* 1.2M  */
-               {0xF0, 18,  80, 2, 224,     1,    9,      2880},  /* 1.44M */
-               {0xF0, 36,  80, 2, 224,     2,    9,      5760},  /* 2.88M */
-               {0xF0, 60,  80, 2, 224,     4,    8,      9600},  /* 4.8M  */
-               {0xF0, 60, 135, 2, 224,     4,   12,     16200},  /* 8.1M  */
-               {0xF0, 60, 160, 2, 224,     8,    8,     19200},  /* 9.6M  */
-               {0xF0, 62, 250, 2, 224,     8,   12,     31000},  /* 15.5M */
-               {0xF0, 62, 250, 4, 224,    16,   12,     62000},  /* 31M   */
-               {0x00,  0,   0, 0,   0,     0,    0,         0}}; /* end   */
+} FDPARMS[] = {{0xFD,  9,  40, 2, 112,     2,    2,       720, "360K (1983)"},
+               {0xF9,  9,  80, 2, 112,     2,    3,      1440, "720K (1986)"},
+               {0xF9, 15,  80, 2, 224,     1,    7,      2400, "1.2M (1984, IBM AT)"},
+               {0xF0, 18,  80, 2, 224,     1,    9,      2880, "1.44M, the classic 3.5\" floppy since 1987"},
+               {0xF0, 21,  80, 2,  16,     4,    3,      3360, "1.68M (DMF), big clusters and tiny root!"},
+               {0xF0, 21,  82, 2,  16,     4,    3,      3444, "1.72M (DMF), big clusters and tiny root!"},
+               {0xF0, 36,  80, 2, 224,     2,    9,      5760, "2.88M, a 1991 invention that never caught on"},
+               {0xF0, 60,  80, 2, 224,     4,    8,      9600, "4.8M, custom format"},
+               {0xF0, 60, 135, 2, 224,     4,   12,     16200, "8.1M, custom format"},
+               {0xF0, 60, 160, 2, 224,     8,    8,     19200, "9.6M, custom format"},
+               {0xF0, 62, 250, 2, 224,     8,   12,     31000, "15.5M, custom format"},
+               {0xF0, 62, 250, 4, 224,    16,   12,     62000, "31M, custom format"},
+               {0x00,  0,   0, 0,   0,     0,    0,         0, ""}}; /* end   */
 /* some calculations
  * totsectors = sect * trk * hd
  * numOfClusters = (totsectors - 1 - (2*fatsz)) / clustsz
@@ -147,8 +150,6 @@ static int floppygen(unsigned char *dst, int sz) {
   int type;
   /* validate dst */
   if (dst == NULL) return(-1);
-  /* sz defaults to 1440 if not specified */
-  if (sz == 0) sz = 1440;
   /* translate sz to type id */
   type = getFDPARMSidbysize(sz);
   if (type < 0) return(-1); /* invalid type */
@@ -357,7 +358,7 @@ static int process_data(struct FRAME *frame, const unsigned char *mymac, struct 
     case 0x15: /* GET DISK TYPE */
       /* this routine is buggy - it returns AH=0 on success, while RBIL
        * says that success is indicated by CF=0 but AH should report a 0x02
-       * code in AH... I can't do this sadlu because ethflop assumes ah=0 for
+       * code in AH... I can't do this sadly because ethflop assumes ah=0 for
        * success, and would set CF for any other value */
       if (ce->fd == NULL) {
         frame->ax &= 0x00ff;
@@ -526,6 +527,7 @@ static int process_ctrl(struct FRAME *frame, const unsigned char *mymac, const c
   argc = parseargs(cmd, sizeof(cmd) - 1, arg, arg2, sizeof(arg) - 1, (char *)frame->data);
   lostring(cmd, sizeof(cmd));
   upstring(arg, sizeof(arg));
+  upstring(arg2, sizeof(arg2));
 
   if (argc < 1) {
     fprintf(stderr, "illegal query from %s\n", printmac(ce->mac));
@@ -639,11 +641,14 @@ static int process_ctrl(struct FRAME *frame, const unsigned char *mymac, const c
     if (n == 0) ptr += sprintf(ptr, "no virtual floppy disks available");
     for (i = 0; i < n; i++) {
       int t;
-      /* replace first dot by a null terminator */
+      /* replace first dot by a null terminator and turn uppercase */
       for (t = 0; namelist[i]->d_name[t] != 0; t++) {
         if (namelist[i]->d_name[t] == '.') {
           namelist[i]->d_name[t] = 0;
           break;
+        }
+        if ((namelist[i]->d_name[t] >= 'a') || (namelist[i]->d_name[t] <= 'z')) {
+          namelist[i]->d_name[t] -= 0x20;
         }
       }
       if (i < 50) ptr += sprintf(ptr, "%9s ", namelist[i]->d_name);
@@ -658,9 +663,20 @@ static int process_ctrl(struct FRAME *frame, const unsigned char *mymac, const c
     unsigned char imghdr[65536];
     int fsize, fcount;
     FILE *fd;
+    int i;
+    /* zero out imghdr to avoid leaving there any kind of garbage data */
+    memset(imghdr, 0, sizeof(imghdr));
+    /* compute the header */
     fsize = floppygen(imghdr, atoi(cmd + 1));
     if (fsize < 1) {
-      sprintf((char *)(frame->data), "ERROR: invalid floppy type specified$");
+      char *ptr = (char *)(frame->data);
+      int sz;
+      sz = sprintf(ptr, "ERROR: invalid floppy size. Valid sizes are:\r\n");
+      for (i = 0; FDPARMS[i].md != 0; i++) {
+        if (sz + strlen(FDPARMS[i].description) + 12 > 512) break;
+        sz += sprintf(ptr + sz, "%5d: %s\r\n", FDPARMS[i].totsectors / 2, FDPARMS[i].description);
+      }
+      ptr[sz] = '$'; /* append the DOS string terminator */
       goto DONE;
     }
     if (validatediskname(arg) != 0) {

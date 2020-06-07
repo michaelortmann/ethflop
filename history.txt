@@ -1,0 +1,8 @@
+
+version xxxxxxx:
+ - added support for DMF (1.68M and 1.72M) floppy images
+ - ethflop parameters are case-insensitive
+ - "ethflop l" lists available virt. floppies in all upper-case
+
+version 20191003:
+ - initial public release

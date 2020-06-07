@@ -1,0 +1,24 @@
+
+Ideas for possible (future) developments...
+
+- make it possible to substitue a B: drive when said drive is ghosted by DOS
+  (typical situation of single-drive setups)
+
+- add a separate signal for CF in the protocol, so it is possible to set a
+  non-zero AH while keeping CF zeroed at the same time - this would be useful
+  for responding to int 13h,ah=15h (get disk type)
+
+- some hotkey to automatically swap disks... this would be tricky to
+  implement, as it would probably require a redesign of the TSR. I don't need
+  such feature, but can see how it could be useful for games that ask "please
+  insert disk number 2"
+
+- option for stealing a write lock (diskette "forgotten" in another PC)
+
+- formatting support (with dynamic resizing of the floppy image)
+
+- deleting a diskette should issue a prompt ("are you sure?")
+
+- some kind of server-side management interface to force ejecting/inserting
+  floppy images to clients (could be used as a poor man's way of diskette
+  swapping)
