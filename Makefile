@@ -3,6 +3,7 @@
 # http://ethflop.sourceforge.net
 #
 # Copyright (C) 2019 Mateusz Viste
+# Copyright (c) 2020 Michael Ortmann
 #
 # make        - builds ethflopd (Linux daemon)
 # make tsr    - builds ethflop.com (DOS TSR, requires NASM)
@@ -14,8 +15,8 @@
 #CFLAGS = -O2 -Wall -std=gnu89 -pedantic -Wextra -Wformat-security -D_FORTIFY_SOURCE=1 -Weverything -Wno-padded
 
 # production
-CC = gcc
-CFLAGS = -O2 -std=gnu89
+CC ?= gcc
+CFLAGS := -O2 -std=gnu89 $(CFLAGS)
 
 all: ethflopd
 

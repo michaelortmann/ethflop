@@ -42,7 +42,7 @@
 #include <unistd.h>          /* close(), getopt(), optind */
 
 /* program version */
-#define PVER "20191003"
+#define PVER "20191003m"
 
 /* set to 1 to enable DEBUG mode */
 #define DEBUG 0
