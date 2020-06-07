@@ -148,7 +148,7 @@ retf
 ; ============================================================================
 ; sends the frame starting at PKT_DMAC. Applies HDR_ values first and computes
 ; checksum. Also waits until a valid answer is present in the PKT buffer.
-; returns with a clear CF on succes, set CF otherwise.
+; returns with a clear CF on success, set CF otherwise.
 ; this function ALWAYS sets ah=0x80 on exit
 PKTDRVR_SEND:
 ; save registers
@@ -405,7 +405,7 @@ je short HANDLERDONE_GOTPKT
 call PKTDRVR_SEND     ; send frame and preset ah=0x80 ("timeout, not read")
 ; abort on failure
 jnc short .ACTION_READ_GOTPKT
-mov al, [cs:HDR_SECTNUM] ; AL tells "HOW MANY SECTORS HAVE BEEN TRANSFERED"
+mov al, [cs:HDR_SECTNUM] ; AL tells "HOW MANY SECTORS HAVE BEEN TRANSFERRED"
 jmp short HANDLERDONE
 .ACTION_READ_GOTPKT:
 ; did I get a server-side error? (PKT_AH != 0)
@@ -491,7 +491,7 @@ pop es
 call PKTDRVR_SEND     ; send frame and preset ah=0x80 ("timeout, not read")
 ; abort on failure
 jnc short .ACTION_WRITE_GOTPKT
-mov al, [cs:HDR_SECTNUM] ; AL tells "HOW MANY SECTORS HAVE BEEN TRANSFERED"
+mov al, [cs:HDR_SECTNUM] ; AL tells "HOW MANY SECTORS HAVE BEEN TRANSFERRED"
 jmp short HANDLERDONE
 .ACTION_WRITE_GOTPKT:
 ; did I get a server-side error? (PKT_AH != 0)
@@ -834,7 +834,7 @@ call PKTDRVR_RELEASE
 mov ah, 0x49    ; free memory (DOS 2+) - ES must contain segment to free
 int 21h
 jnc short .UNLOADTSRDONE
-; otherwise an error occured
+; otherwise an error occurred
 mov ah, 0x09
 mov dx, STR_FAILEDFREETSR
 int 21h
@@ -1031,8 +1031,8 @@ ret
 ; === STRINGS USED BY THE TRANSIENT LOADER ===================================
 ; ============================================================================
 ; (no need to declare a .data section, tiny model imples DS == CS anyway)
-STR_HELP db "ethflop v0.6 - a floppy drive emulator over Ethernet", 13, 10,\
-            "Copyright (C) 2019 Mateusz Viste", 13, 10, 10,\
+STR_HELP db "ethflop v0.6m - a floppy drive emulator over Ethernet", 13, 10,\
+            "Copyright (C) 2019 Mateusz Viste, 2020 Michael Ortmann", 13, 10, 10,\
             "=== USAGE ====================================================================", 13, 10,\
             "ethflop a           installs the ethflop TSR as A:", 13, 10,\
             "ethflop b           installs ethflop as B: (works only if you have a real B:)", 13, 10,\

@@ -1,7 +1,8 @@
 ethflop is a DOS TSR that emulates a floppy disk drive. The emulated (virtual)
 floppy disk is, in fact, stored on a Linux server as a floppy image.
 
-This is version 20191003 from http://ethflop.sourceforge.net/.
+This is version 20191003 from http://ethflop.sourceforge.net/ plus some patches
+by me.
 
 Thanks and Greetings to Mateusz Viste.
 
