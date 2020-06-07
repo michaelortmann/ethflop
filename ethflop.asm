@@ -1,6 +1,7 @@
 ;
 ; ethflop - a floppy drive emulator over Ethernet
 ; Copyright (C) 2019 Mateusz Viste
+; Copyright (c) 2020 Michael Ortmann
 ;
 ; ethflop is a small TSR that hooks itself on INT 13h and emulates a floppy
 ; drive. All requests for this drive are forwarded through Ethernet towards
@@ -348,6 +349,14 @@ mov [cs:ORIGSP], sp
 push cs
 pop ss  ; I should do that only after a CLI, but here I am inside an
         ; int handler, so interrupts are disabled already
+
+; pre-fill pkt hdr with registers, as seen at entry point
+mov sp,HDR_DX + 2 ; +2 due to "push dx" equals "--sp = dx"
+push dx           ; mov [cs:HDR_DX], dx
+push cx           ; mov [cs:HDR_CX], cx
+push bx           ; mov [cs:HDR_BX], bx
+push ax           ; mov [cs:HDR_AX], ax
+
 mov sp, PROGSTART + (STACKSIZE - 2)
 
 ; enable interrupts - this is good for two reasons: allows nested interrupts,
@@ -356,12 +365,6 @@ sti
 
 ; clear direction flag, so all rep-like ops always move forward
 cld
-
-; pre-fill pkt hdr with registers, as seen at entry point
-mov [cs:HDR_AX], ax
-mov [cs:HDR_BX], bx
-mov [cs:HDR_CX], cx
-mov [cs:HDR_DX], dx
 
 %if DBG != 0
 ; print int called (AH) on screen (YELLOW)
@@ -434,10 +437,14 @@ jmp short .ACTION_READ_NEXTSECT
 ; these subroutines can appear to be at an odd place in the code - this is
 ; to favor usage of short jumps to it.
 HANDLERDONE_GOTPKT:
-mov ax, [cs:PKT_AX]
-mov bx, [cs:PKT_BX]
-mov cx, [cs:PKT_CX]
-mov dx, [cs:PKT_DX]
+cli ; disable interrupts - I will modify stack pointers so I can't be bothered
+push cs
+pop ss ; I should do that only after a CLI
+mov sp,PKT_AX
+pop ax ; mov ax, [cs:PKT_AX]
+pop bx ; mov bx, [cs:PKT_BX]
+pop cx ; mov cx, [cs:PKT_CX]
+pop dx ; mov dx, [cs:PKT_DX]
 HANDLERDONE:
 cli ; disable interrupts - I will modify stack pointers so I can't be bothered
 ; save AH to [LASTOPSTATUS]
