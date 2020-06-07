@@ -1,0 +1,122 @@
+
+                 ETHFLOP, COPYRIGHT (C) 2019 MATEUSZ VISTE
+                      http://ethflop.sourceforge.net
+
+=== WHAT IS IT? ==============================================================
+
+ethflop is a DOS TSR that emulates a floppy disk drive. The emulated (virtual)
+floppy disk is, in fact, stored on a Linux server as a floppy image. All the
+communication between ethflop (the TSR) and ethflopd (the Linux daemon) is
+exchanged over raw Ethernet. No need for any network configuration - the DOS
+PC only needs to have some kind of Ethernet adapter (physical or emulated, for
+example through PLIP) and a suitable packet driver. The Linux server and the
+DOS PC must be connected to a common Ethernet segment (same LAN).
+
+Shortly said, ethflop:
+ - emulates many types of floppies (360K, 720K, 1.2M, 1.44M... up to 31M)
+ - requires only a working packet driver for network connectivity
+ - presents a block device to DOS, almost indistinguishable from a real FDD
+ - consumes less than 2 KiB of memory (and can be loaded high)
+
+Compared to EtherDFS*, what are the downsides of using ethflop?
+ - a virtual floppy disk can be used only by one machine at a time (unless
+   the virtual floppy is inserted as 'read-only')
+ - the available space on a floppy is (obviously) limited, although ethflop
+   supports virtual floppies of up to 15.5M, which is quite a lot of space
+
+On the upside, ethflop is significantly smaller than EtherDFS (2K resident, vs
+7K), it is much more transparent to the operating system and applications
+so it should have higher compatibility and it does not use (too much) dark
+sorcery to do its job, meaning it is expected to work with most existing DOS
+flavours.
+
+*) EtherDFS can be found at http://etherdfs.sourceforge.net
+
+=== HOW TO USE IT? ===========================================================
+
+Quick-start instructions:
+
+1. compile the ethflopd daemon on your Linux machine (type "make")
+2. run the ethflopd executable as root: # ./ethflopd eth0 /var/floppies
+   (where eth0 is the system name of your network interface and /var/floppies
+   is the directory where virtual floppy disks will be stored)
+3. on the DOS PC, load the ethflop TSR: "ethflop a"
+4. create a new 720K diskette: "ethflop n720 myfloppy"
+5. "insert" the newly created diskette: "ethflop i myfloppy"
+6. you can access the virtual floppy now through A:.
+
+Read the program's help for more details (ie. run ethflop without arguments).
+
+=== REQUIREMENTS =============================================================
+
+For the ethflop TSR:
+ - DOS 2.x+
+ - an 8088+ CPU and 4K of available RAM
+ - some kind of Ethernet adapter and its packet driver
+
+For the ethflopd Linux daemon:
+ - a reasonably recent Linux machine
+ - the GCC or CLANG compiler and GNU make
+
+=== ORIGINS ==================================================================
+
+A couple of years ago I needed to hook my 8086 PC to a network drive, so I
+could easily share files between my ancient PCs and the real world. I have
+created EtherDFS then, a little TSR that connects to a network drive. EtherDFS
+is awesome, but it is also extremely complex, for a variety of reasons: it
+interacts with obscure, often undocumented, MS-DOS structures, it needs to
+handle all kinds of file operations and, last but not least, it does a lot of
+trickery to keep its resident size small.
+
+While EtherDFS is perfectly suited for many use cases, I longed for a simpler
+alternative for more basic needs. My oldest machines do not need access to
+terabytes of data, their software often holds on a couple of floppy disks. So
+I thought - why not go one level lower, and instead of emulating an entire
+filesystem, create a virtual, Ethernet-backed floppy-like block device? And
+that's exactly what ethflop is about.
+
+=== THE B: DRIVE STORY =======================================================
+
+If you have a computer with a single floppy drive (A:), you might be tempted
+to install ethflop under B:. Unfortunately, this is unlikely to work. On
+single-floppy systems, MS-DOS installs a "ghost" drive under B:. All requests
+sent for B: are then in fact redirected to A:, hence if ethflop would listen
+under B: it would effectively see no requests. A possible workaround would be
+to declare a non-existing secondary diskette drive in your BIOS, so DOS won't
+hook B: itself.
+
+=== LIST OF FILES ============================================================
+
+The ethflop solution is originally distributed with the following files:
+
+ETHFLOP.ASM   source code of the TSR (x86 assembly, NASM)
+ETHFLOP.COM   the DOS TSR program
+ETHFLOP.TXT   documentation file (you are reading it)
+ETHFLOPD.C    source code of the Linux daemon
+MAKEFILE      build instructions for GNU make
+
+=== QUESTIONS & BUG REPORTS ==================================================
+
+I have put a lot of effort into this software and did my best to ensure it
+works as advertised. However, just like with any software, it is possible -
+if not probable - that it still has some bugs. If you observe any unexpected
+behavior or simply have a question about ethflop, write me an email. You will
+find pointers about how to do so on my web homepage: http://mateusz.viste.fr
+
+=== LICENSE (ISC) ============================================================
+
+ethflop, Copyright (C) 2019 Mateusz Viste
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.
+
+====================================================================== EOF ===
