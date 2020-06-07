@@ -377,15 +377,15 @@ call VGADBG
 ; identify the int 13h query
 or ah, ah        ; test for ah == 0 (byte shorter than cmp ah, 0)
 jz short HANDLERDONE   ; special case: RESET always succeeds, ah=0, nothing to do
-cmp ah, 0x01
+dec ah ; cmp ah, 0x01
 jne short ACTION_NOT_STATUSLASTOP
 ; int 13h, ah=1h
 mov ah, [cs:LASTOPSTATUS] ; load AH with last status op
 jmp short HANDLERDONE
 ACTION_NOT_STATUSLASTOP:
-cmp ah, 0x02
+dec ah ; cmp ah, 0x02
 je short ACTION_READ
-cmp ah, 0x03
+dec ah ; cmp ah, 0x03
 je short ACTION_WRITE
 ; unrecognized function -> let the server worry about it
 call PKTDRVR_SEND     ; send frame and preset ah=0x80 ("timeout, not read")
@@ -396,7 +396,7 @@ jmp short HANDLERDONE_GOTPKT
 ; process the query - set ah to 0 on success errno otherwise, then jmp HANDLERDONE
 
 ACTION_READ: ; int 13h,ah=2h: al=sectors_to_read, ch=cyl, cl=sect, dh=head
-and ax, 0x00ff ; ah=0 and test al for zero (query to rd/wr 0 sects -> success)
+and al, 0xff ; ah=0 and test al for zero (query to rd/wr 0 sects -> success)
 jz HANDLERDONE
 mov [cs:HDR_SECTNUM], ah ; zero out HDR_SECTNUM (ah=0 here, and that's a byte shorter than using byte 0)
 .ACTION_READ_NEXTSECT:
@@ -463,7 +463,7 @@ pop bp ; restore BP to its original value
 iret ; processing done, return from interrupt
 
 ACTION_WRITE: ; int 13h, ah=3h (write AL sectors at CHS CH:DH:CL from ES:BX)
-and ax, 0x00ff ; ah=0 and test al for zero (query to rd/wr 0 sects -> success)
+and al, 0xff ; ah=0 and test al for zero (query to rd/wr 0 sects -> success)
 jz short HANDLERDONE
 mov [cs:HDR_SECTNUM], ah ; zero out HDR_SECTNUM (ah=0 here, and that's a byte shorter than using byte 0)
 .ACTION_WRITE_NEXTSECT:
