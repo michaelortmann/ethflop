@@ -1110,11 +1110,11 @@ COMPUTEPKTCSUM_TEMPLATE_END:
 ; reads the lowest byte of the system timer at 0040:6C and returns it in BL
 ; destroys BH
 GETCURTICK_TEMPLATE:
-push es
-xor bx, bx         ; zero out bx
-mov es, bx         ; es points to seg 0 now
-mov bl, [es:046Ch] ; read lowest byte of the system 18.2 hz timer
-pop es
+push ds 
+xor bx, bx      ; zero out bx
+mov ds, bx      ; ds points to seg 0 now
+mov bl, [046Ch] ; read lowest byte of the system 18.2 hz timer
+pop ds
 ret
 GETCURTICK_TEMPLATE_END:
 
