@@ -16,7 +16,7 @@
 
 # production
 CC ?= gcc
-CFLAGS := -O2 -std=gnu89 $(CFLAGS)
+CFLAGS := -O2 -std=gnu89 -Wall $(CFLAGS)
 
 all: ethflopd
 

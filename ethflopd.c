@@ -587,7 +587,8 @@ static int process_ctrl(struct FRAME *frame, const unsigned char *mymac, const c
     }
     ce->chs_sectspertrack = FDPARMS[i].secttrack;
     ce->chs_totheads = FDPARMS[i].heads;
-    strncpy(ce->curflopid, arg, sizeof(ce->curflopid));
+    memcpy(ce->curflopid, arg, (sizeof ce->curflopid) - 1);
+    ce->curflopid[(sizeof ce->curflopid) - 1] = 0;
     sprintf((char *)(frame->data), "Disk %s loaded (%d KiB%s)$", ce->curflopid, ce->sectcount / 2, (ce->ro == 0)?"":" (write-protected)");
     ce->diskchangeflag = 1;
     goto DONE;
