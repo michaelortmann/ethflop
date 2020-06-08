@@ -414,8 +414,6 @@ jnz short HANDLERDONE_GOTPKT
 ; all good. write result to es:bx + 512*sect
 push es
 push ds
-push si
-push di
 push cx
 push cs ; ds = cs
 pop ds
@@ -424,8 +422,6 @@ call COMMON_READWRITE_COMPUTE_ES_CX_SI_DI ; ES=HDR_SECTNUM * 32, CX=256, SI=PKT_
 rep movsw            ; copy CX words from DS:SI to ES:DI (destroys CX, SI, DI)
 inc byte [HDR_SECTNUM]; inc without CS prefix - do it NOW, before DS changes again!
 pop cx
-pop di
-pop si
 pop ds
 pop es
 ; proceed to next sector
@@ -472,8 +468,6 @@ je short HANDLERDONE_GOTPKT
 ; copy data from ES:BX + 512*sect to PKT_DATA
 push es
 push ds
-push si
-push di
 push cx
 ; recompute the destination pointer to account for sector id displacement
 call COMMON_READWRITE_COMPUTE_ES_CX_SI_DI ; ES=HDR_SECTNUM * 32, CX=256, SI=PKT_DATA, DI=BX
@@ -484,8 +478,6 @@ push cs              ; es = cs
 pop es
 rep movsw            ; copy CX words from DS:SI to ES:DI (destroys CX, SI, DI)
 pop cx
-pop di
-pop si
 pop ds
 pop es
 call PKTDRVR_SEND     ; send frame and preset ah=0x80 ("timeout, not read")
