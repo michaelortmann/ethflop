@@ -414,14 +414,12 @@ jnz short HANDLERDONE_GOTPKT
 ; all good. write result to es:bx + 512*sect
 push es
 push ds
-push cx
 push cs ; ds = cs
 pop ds
 ; recompute the destination pointer to account for sector id displacement
 call COMMON_READWRITE_COMPUTE_ES_CX_SI_DI ; ES=HDR_SECTNUM * 32, CX=256, SI=PKT_DATA, DI=BX
 rep movsw            ; copy CX words from DS:SI to ES:DI (destroys CX, SI, DI)
 inc byte [HDR_SECTNUM]; inc without CS prefix - do it NOW, before DS changes again!
-pop cx
 pop ds
 pop es
 ; proceed to next sector
