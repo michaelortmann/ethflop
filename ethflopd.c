@@ -991,7 +991,7 @@ int main(int argc, char **argv) {
     FD_SET(datasock, &fdset);
     FD_SET(ctrlsock, &fdset);
     /* wait for something to happen on my socket */
-    select(highestfd + 1, &fdset, NULL, &fdset, &stimeout);
+    select(highestfd + 1, &fdset, NULL, NULL, &stimeout);
     clock_gettime(CLOCK_MONOTONIC, &tp1); /* get cur time for later calculation */
     if (recv(datasock, &frame, sizeof(frame), MSG_DONTWAIT) != sizeof(frame)) {
       if (recv(ctrlsock, &frame, sizeof(frame), MSG_DONTWAIT) != sizeof(frame)) continue; /* restart if size not what I expect or negative */
