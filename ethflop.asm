@@ -481,7 +481,7 @@ pop es
 call PKTDRVR_SEND     ; send frame and preset ah=0x80 ("timeout, not read")
 ; abort on failure
 jnc short .ACTION_WRITE_GOTPKT
-mov al, [cs:HDR_SECTNUM] ; AL tells "HOW MANY SECTORS HAVE BEEN TRANSFERRED"
+; mov al, [cs:HDR_SECTNUM] ; AL tells "HOW MANY SECTORS HAVE BEEN TRANSFERRED"
 jmp short HANDLERDONE
 .ACTION_WRITE_GOTPKT:
 ; did I get a server-side error? (PKT_AH != 0)
