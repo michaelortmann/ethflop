@@ -27,7 +27,7 @@
 #include <errno.h>
 #include <endian.h>          /* le16toh(), le32toh() */
 #include <fnmatch.h>
-#include <linux/if_packet.h>
+#include <netpacket/packet.h> /* sockaddr_ll */
 #include <limits.h>          /* PATH_MAX and such */
 #include <net/ethernet.h>
 #include <net/if.h>
