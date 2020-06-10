@@ -1,7 +1,7 @@
 
 Ideas for possible (future) developments...
 
-- make it possible to substitue a B: drive when said drive is ghosted by DOS
+- make it possible to substitute a B: drive when said drive is ghosted by DOS
   (typical situation of single-drive setups)
 
 - add a separate signal for CF in the protocol, so it is possible to set a
