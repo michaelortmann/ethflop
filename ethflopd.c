@@ -698,7 +698,8 @@ static int process_ctrl(struct FRAME *frame, const unsigned char *mymac, const c
     fcount = (int)fwrite(imghdr, 1, 65536, fd);
     if (fcount != 65536) fprintf(stderr, "WTF fwrite() returned %d\n", fcount);
     /* pad img with zeroes */
-    ftruncate(fileno(fd), fsize);
+    if (ftruncate(fileno(fd), fsize) < 0)
+      fprintf(stderr, "ERROR: ftruncate(): %s$", strerror(errno));
     fclose(fd);
     sprintf((char *)(frame->data), "Disk %s created (%d KiB)$", arg, fsize / 1024);
     goto DONE;
