@@ -1,8 +1,9 @@
 ethflop is a DOS TSR that emulates a floppy disk drive. The emulated (virtual)
-floppy disk is, in fact, stored on a FreeBSD or Linux server as a floppy image.
+floppy disk is, in fact, stored on a FreeBSD, OpenBSD or Linux server as a
+floppy image.
 
 This is version https://sourceforge.net/p/ethflop/code/67/tree/trunk/ plus
-FreeBSD port and some other patches by me.
+FreeBSD and OpenBSD port and some other patches by me.
 
 Thanks and Greetings to Mateusz Viste.
 

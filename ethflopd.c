@@ -1,6 +1,6 @@
 /*
- * ethflopd is serving files through the ethflop protocol. Runs on FreeBSD and
- * Linux.
+ * ethflopd is serving files through the ethflop protocol. Runs on FreeBSD,
+ * OpenBSD and Linux.
  *
  * http://ethflop.sourceforge.net
  *
@@ -26,7 +26,7 @@
 #include <arpa/inet.h>       /* htons() */
 #include <dirent.h>
 #include <errno.h>
-#ifdef __FreeBSD__
+#if defined __FreeBSD__ || defined __OpenBSD__
   #include <fcntl.h>         /* open() */
   #include <sys/types.h>     /* u_char */
   #include <net/bpf.h>       /* BIOCSETIF */
@@ -39,8 +39,12 @@
 #endif
 #include <fnmatch.h>
 #include <limits.h>          /* PATH_MAX and such */
-#include <net/ethernet.h>
 #include <net/if.h>
+#ifdef __OpenBSD__
+  #include <netinet/if_ether.h>
+#else
+  #include <net/ethernet.h>
+#endif
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>          /* mempcy() */
@@ -765,7 +769,7 @@ static int process_ctrl(struct FRAME *frame, const unsigned char *mymac, const c
 
 static int raw_sock(const int protocol, const char *const interface, void *const hwaddr) {
   struct ifreq iface;
-#ifdef __FreeBSD__
+#if defined __FreeBSD__ || defined __OpenBSD__
   #define PATH_BPF "/dev/bpf"
   int i = 0;
   char filename[sizeof PATH_BPF "-9223372036854775808"]; /* 29 */
@@ -799,7 +803,7 @@ static int raw_sock(const int protocol, const char *const interface, void *const
     errno = EINVAL;
     return(-1);
   }
-#ifdef __FreeBSD__
+#if defined __FreeBSD__ || defined __OpenBSD__
   do {
     snprintf(filename, sizeof(filename), PATH_BPF "%i", i++);
     socketfd = open(filename, O_RDWR);
@@ -812,7 +816,7 @@ static int raw_sock(const int protocol, const char *const interface, void *const
   do {
     memset(&iface, 0, sizeof iface);
     strncpy(iface.ifr_name, interface, sizeof iface.ifr_name - 1);
-#ifdef __FreeBSD__
+#if defined __FreeBSD__ || defined __OpenBSD__
     if (ioctl(socketfd, BIOCSETIF, &iface) < 0) {
       DBG("ERROR: could not bind %s to %s: %s\n", filename, iface.ifr_name, strerror(errno));
       break;
@@ -995,7 +999,7 @@ int main(int argc, char **argv) {
   struct cliententry *clist = NULL, *ce;
   int daemon = 1; /* daemonize self by default */
   struct timespec tp1, tp2; /* used for calculating response time */
-#ifdef __FreeBSD__
+#if defined __FreeBSD__ || defined __OpenBSD__
   int bpf_len;
   unsigned char *bpf_buf;
   struct bpf_hdr *bf_hdr;
@@ -1065,7 +1069,7 @@ int main(int argc, char **argv) {
     }
   }
 
-#ifdef __FreeBSD__
+#if defined __FreeBSD__ || defined __OpenBSD__
   if (ioctl(datasock, BIOCGBLEN, &bpf_len) < 0) {
     DBG("ERROR1: could not get the required buffer length for reads on bpf files: %s\n", strerror(errno));
     return(1);
@@ -1100,7 +1104,7 @@ int main(int argc, char **argv) {
       sock = datasock;
     else
       sock = ctrlsock;
-#ifdef __FreeBSD__
+#if defined __FreeBSD__ || defined __OpenBSD__
     if ((len = read(sock, bpf_buf, bpf_len)) < (int) sizeof (struct bpf_hdr)) {
       DBG("ERROR: read()\n");
       continue;
@@ -1182,7 +1186,7 @@ int main(int argc, char **argv) {
       nanot.tv_nsec = 500 * 1000; /* 1000 ns is 1 us. 1000 us is 1 ms */
       nanosleep(&nanot, NULL);
     }
-#ifdef __FreeBSD__
+#if defined __FreeBSD__ || defined __OpenBSD__
     len = write(datasock, frame, sizeof(*frame));
     if (len < 0) {
       fprintf(stderr, "ERROR: write() returned %ld (%s)\n", len, strerror(errno));
