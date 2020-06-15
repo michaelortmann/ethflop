@@ -1,5 +1,6 @@
 /*
- * ethflopd is serving files through the ethflop protocol. Runs on Linux.
+ * ethflopd is serving files through the ethflop protocol. Runs on FreeBSD and
+ * Linux.
  *
  * http://ethflop.sourceforge.net
  *
@@ -25,9 +26,18 @@
 #include <arpa/inet.h>       /* htons() */
 #include <dirent.h>
 #include <errno.h>
-#include <endian.h>          /* le16toh(), le32toh() */
+#ifdef __FreeBSD__
+  #include <fcntl.h>         /* open() */
+  #include <sys/types.h>     /* u_char */
+  #include <net/bpf.h>       /* BIOCSETIF */
+  #include <net/if_dl.h>     /* LLADDR */
+  #include <sys/endian.h>
+  #include <sys/sysctl.h>
+#else
+  #include <endian.h>        /* le16toh(), le32toh() */
+  #include <netpacket/packet.h> /* sockaddr_ll */
+#endif
 #include <fnmatch.h>
-#include <netpacket/packet.h> /* sockaddr_ll */
 #include <limits.h>          /* PATH_MAX and such */
 #include <net/ethernet.h>
 #include <net/if.h>
@@ -56,6 +66,9 @@
 #else
 #define DBG(...)
 #endif
+
+#define ETHERTYPE_DATA 0xEFDD
+#define ETHERTYPE_CTRL 0xEFDC
 
 
 struct __attribute__((packed)) FRAME {
@@ -752,21 +765,86 @@ static int process_ctrl(struct FRAME *frame, const unsigned char *mymac, const c
 
 static int raw_sock(const int protocol, const char *const interface, void *const hwaddr) {
   struct ifreq iface;
+#ifdef __FreeBSD__
+  #define PATH_BPF "/dev/bpf"
+  int i = 0;
+  char filename[sizeof PATH_BPF "-9223372036854775808"]; /* 29 */
+  int immediate = 1;
+  struct bpf_insn bf_insn[] = {
+    /* Make sure this is a protocol packet... */
+    BPF_STMT(BPF_LD + BPF_H + BPF_ABS, 12),
+    BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, protocol, 0, 1),
+    /* If we passed all the tests, ask for the whole packet. */
+    BPF_STMT(BPF_RET+BPF_K, (u_int)-1),
+    /* Otherwise, drop it. */
+    BPF_STMT(BPF_RET+BPF_K, 0),
+  };
+  struct bpf_program bf_program = {
+    sizeof (bf_insn) / (sizeof bf_insn[0]),
+    bf_insn 
+  };
+  int mib[] = {CTL_NET, AF_ROUTE, 0, 0, NET_RT_IFLIST, 0};
+  size_t len;
+  char *buf;
+  struct if_msghdr *ifm;
+  struct sockaddr_dl *sdl;
+#else
   struct sockaddr_ll addr;
-  int socketfd, result;
+  int result;
   int ifindex;
+#endif
+  int socketfd;
 
   if ((interface == NULL) || (*interface == 0)) {
     errno = EINVAL;
     return(-1);
   }
-
+#ifdef __FreeBSD__
+  do {
+    snprintf(filename, sizeof(filename), PATH_BPF "%i", i++);
+    socketfd = open(filename, O_RDWR);
+  } while ((socketfd < 0) && (errno == EBUSY));
+#else
   socketfd = socket(AF_PACKET, SOCK_RAW, htons(protocol));
+#endif
   if (socketfd == -1) return(-1);
 
   do {
     memset(&iface, 0, sizeof iface);
     strncpy(iface.ifr_name, interface, sizeof iface.ifr_name - 1);
+#ifdef __FreeBSD__
+    if (ioctl(socketfd, BIOCSETIF, &iface) < 0) {
+      DBG("ERROR: could not bind %s to %s: %s\n", filename, iface.ifr_name, strerror(errno));
+      break;
+    }
+    if (ioctl(socketfd, BIOCIMMEDIATE, &immediate) < 0) {
+      DBG("ERROR1: could not enable \"immediate mode\": %s\n", strerror(errno));
+      break;
+    }
+    if (ioctl(socketfd, BIOCSETF, &bf_program) < 0) {
+      DBG("ERROR: could not set the bpf program: %s\n", strerror(errno));
+      break;
+    }
+    if ((mib[5] = if_nametoindex(interface)) == 0) {
+      DBG("ERROR: if_nametoindex(): %s\n", strerror(errno));
+      break;
+    }
+    if (sysctl(mib, 6, NULL, &len, NULL, 0) < 0) {
+      DBG("ERROR: sysctl(): %s\n", strerror(errno));
+      break;
+    }
+    if ((buf = malloc(len)) == NULL) {
+      DBG("ERROR: malloc(): %s\n", strerror(errno));
+      break;
+    }
+    if (sysctl(mib, 6, buf, &len, NULL, 0) < 0) {
+      DBG("ERROR: sysctl(): %s\n", strerror(errno));
+      break;
+    }
+    ifm = (struct if_msghdr *) buf;
+    sdl = (struct sockaddr_dl *) (ifm + 1);
+    memcpy(hwaddr, LLADDR(sdl), ETHER_ADDR_LEN);
+#else
     result = ioctl(socketfd, SIOCGIFINDEX, &iface);
     if (result == -1) break;
     ifindex = iface.ifr_ifindex;
@@ -797,6 +875,7 @@ static int raw_sock(const int protocol, const char *const interface, void *const
     if (bind(socketfd, (struct sockaddr *)&addr, sizeof addr)) break;
 
     errno = 0;
+#endif
     return(socketfd);
   } while (0);
 
@@ -906,9 +985,9 @@ static int daemonize(void) {
 
 
 int main(int argc, char **argv) {
-  int datasock, ctrlsock;
+  int datasock, ctrlsock, sock;
   unsigned char mymac[6];
-  struct FRAME frame;
+  struct FRAME *frame;
   char *intname;
   char *storagedir;
   int opt;
@@ -916,6 +995,11 @@ int main(int argc, char **argv) {
   struct cliententry *clist = NULL, *ce;
   int daemon = 1; /* daemonize self by default */
   struct timespec tp1, tp2; /* used for calculating response time */
+#ifdef __FreeBSD__
+  int bpf_len;
+  unsigned char *bpf_buf;
+  struct bpf_hdr *bf_hdr;
+#endif
   #define LOCKFILE "/var/run/ethflopd.run"
   #define LOCKME lockme(LOCKFILE)
   #define UNLOCKME unlockme(LOCKFILE)
@@ -947,7 +1031,7 @@ int main(int argc, char **argv) {
     return(1);
   }
 
-  datasock = raw_sock(0xEFDD, intname, mymac);
+  datasock = raw_sock(ETHERTYPE_DATA, intname, mymac);
   if (datasock == -1) {
     fprintf(stderr, "Error: failed to open socket (%s)\n"
                     "\n"
@@ -956,7 +1040,7 @@ int main(int argc, char **argv) {
     UNLOCKME;
     return(1);
   }
-  ctrlsock = raw_sock(0xEFDC, intname, mymac);
+  ctrlsock = raw_sock(ETHERTYPE_CTRL, intname, mymac);
   if (ctrlsock == -1) {
     fprintf(stderr, "Error: failed to open socket (%s)\n"
                     "\n"
@@ -981,9 +1065,24 @@ int main(int argc, char **argv) {
     }
   }
 
+#ifdef __FreeBSD__
+  if (ioctl(datasock, BIOCGBLEN, &bpf_len) < 0) {
+    DBG("ERROR1: could not get the required buffer length for reads on bpf files: %s\n", strerror(errno));
+    return(1);
+  }
+  if ((bpf_buf = malloc(bpf_len)) == NULL) {
+    DBG("ERROR: malloc(): %s\n", strerror(errno));
+    return(1);
+  }
+#else
+  if ((frame = (struct FRAME *) malloc(sizeof(*frame))) == NULL) {
+    DBG("ERROR: malloc(): %s\n", strerror(errno));
+    return(1);
+  }
+#endif
+
   /* main loop */
   while (terminationflag == 0) {
-    struct timeval stimeout = {10, 0}; /* set timeout to 10s */
     fd_set fdset;
     int highestfd;
     highestfd = datasock;
@@ -993,78 +1092,93 @@ int main(int argc, char **argv) {
     FD_SET(datasock, &fdset);
     FD_SET(ctrlsock, &fdset);
     /* wait for something to happen on my socket */
-    select(highestfd + 1, &fdset, NULL, NULL, &stimeout);
+    select(highestfd + 1, &fdset, NULL, NULL, NULL);
     clock_gettime(CLOCK_MONOTONIC, &tp1); /* get cur time for later calculation */
-    if (recv(datasock, &frame, sizeof(frame), MSG_DONTWAIT) != sizeof(frame)) {
-      if (recv(ctrlsock, &frame, sizeof(frame), MSG_DONTWAIT) != sizeof(frame)) continue; /* restart if size not what I expect or negative */
+    if (terminationflag)
+      break;
+    if (FD_ISSET(datasock, &fdset))
+      sock = datasock;
+    else
+      sock = ctrlsock;
+#ifdef __FreeBSD__
+    if ((len = read(sock, bpf_buf, bpf_len)) < (int) sizeof (struct bpf_hdr)) {
+      DBG("ERROR: read()\n");
+      continue;
     }
+    bf_hdr = (struct bpf_hdr *) bpf_buf;
+    frame = (struct FRAME *) (bpf_buf + bf_hdr->bh_hdrlen);
+    len -= bf_hdr->bh_hdrlen;
+#else
+    len = recv(sock, frame, sizeof(*frame), MSG_DONTWAIT);
+#endif
+    if (len != sizeof(*frame)) continue; /* restart if size not what I expect or negative */
     /* validate this is for me (or broadcast) */
-    if ((memcmp(mymac, frame.dmac, 6) != 0) && (memcmp("\xff\xff\xff\xff\xff\xff", frame.dmac, 6) != 0)) continue; /* skip anything that is not for me */
+    if ((memcmp(mymac, frame->dmac, 6) != 0) && (memcmp("\xff\xff\xff\xff\xff\xff", frame->dmac, 6) != 0)) continue; /* skip anything that is not for me */
     /* is this valid ethertype ?*/
-    if ((frame.etype != htons(0xEFDD)) && (frame.etype != htons(0xEFDC))) {
-      fprintf(stderr, "Error: Received invalid ethertype frame (0x%u)\n", ntohs(frame.etype));
+    if (((sock == datasock) && (frame->etype != htons(ETHERTYPE_DATA))) || ((sock == ctrlsock) && (frame->etype != htons(ETHERTYPE_CTRL)))) {
+      fprintf(stderr, "Error: Received invalid ethertype frame (0x%u)\n", ntohs(frame->etype));
       continue;
     }
     /* */
   #if DEBUG > 0
-    DBG("Received frame from %s\n", printmac(frame.smac));
-    dumpframe(&frame, sizeof(frame));
+    DBG("Received frame from %s\n", printmac(frame->smac));
+    dumpframe(frame, sizeof(*frame));
   #endif
    #if SIMLOSS_INP > 0
     /* simulated frame LOSS (input) */
     if ((rand() % 100) < SIMLOSS_INP) {
-      fprintf(stderr, "INPUT LOSS! (reqid %d)\n", frame.reqid);
+      fprintf(stderr, "INPUT LOSS! (reqid %d)\n", frame->reqid);
       continue;
     }
    #endif
     /* validate CKSUM */
     {
       unsigned short cksum_mine;
-      cksum_mine = cksum(&frame);
-      if (cksum_mine != frame.csum) {
-        fprintf(stderr, "CHECKSUM MISMATCH! Computed: 0x%02Xh Received: 0x%02Xh\n", cksum_mine, frame.csum);
+      cksum_mine = cksum(frame);
+      if (cksum_mine != frame->csum) {
+        fprintf(stderr, "CHECKSUM MISMATCH! Computed: 0x%02Xh Received: 0x%02Xh\n", cksum_mine, frame->csum);
         continue;
       }
     }
     /* convert ax/bx/cx/dx to host order */
-    frame.ax = le16toh(frame.ax);
-    frame.bx = le16toh(frame.bx);
-    frame.cx = le16toh(frame.cx);
-    frame.dx = le16toh(frame.dx);
+    frame->ax = le16toh(frame->ax);
+    frame->bx = le16toh(frame->bx);
+    frame->cx = le16toh(frame->cx);
+    frame->dx = le16toh(frame->dx);
     /* find client entry */
-    ce = findorcreateclient(&clist, frame.smac);
+    ce = findorcreateclient(&clist, frame->smac);
     if (ce == NULL) {
       fprintf(stderr, "ERROR: OUT OF MEMORY!\n");
       continue;
     }
     /* process frame */
-    if (frame.etype == htons(0xEFDD)) {
-      if (process_data(&frame, mymac, ce) != 0) continue;
-    } else if (frame.etype == htons(0xEFDC)) {
-      if (process_ctrl(&frame, mymac, storagedir, ce, clist) != 0) continue;
+    if (frame->etype == htons(ETHERTYPE_DATA)) {
+      if (process_data(frame, mymac, ce) != 0) continue;
+    } else if (frame->etype == htons(ETHERTYPE_CTRL)) {
+      if (process_ctrl(frame, mymac, storagedir, ce, clist) != 0) continue;
     } else {
-      fprintf(stderr, "Error: unsupported ethertype from %s (0x%02x)\n", printmac(frame.smac), ntohs(frame.etype));
+      fprintf(stderr, "Error: unsupported ethertype from %s (0x%02x)\n", printmac(frame->smac), ntohs(frame->etype));
       continue;
     }
     /* */
    #if SIMLOSS_OUT > 0
     /* simulated frame LOSS (output) */
     if ((rand() % 100) < SIMLOSS_OUT) {
-      fprintf(stderr, "OUTPUT LOSS! (reqid %d)\n", frame.reqid);
+      fprintf(stderr, "OUTPUT LOSS! (reqid %d)\n", frame->reqid);
       continue;
     }
    #endif
     DBG("---------------------------------\n");
     /* convert new register values to little-endian */
-    frame.ax = htole16(frame.ax);
-    frame.bx = htole16(frame.bx);
-    frame.cx = htole16(frame.cx);
-    frame.dx = htole16(frame.dx);
+    frame->ax = htole16(frame->ax);
+    frame->bx = htole16(frame->bx);
+    frame->cx = htole16(frame->cx);
+    frame->dx = htole16(frame->dx);
     /* fill in checksum into the answer */
-    frame.csum = cksum(&frame);
+    frame->csum = cksum(frame);
   #if DEBUG > 0
-      DBG("Sending back an answer of %lu bytes\n", sizeof(frame));
-      dumpframe(&frame, sizeof(frame));
+      DBG("Sending back an answer of %lu bytes\n", sizeof(*frame));
+      dumpframe(frame, sizeof(*frame));
   #endif
     /* wait 0.5 ms - just to make sure that ethflop had time to prepare itself - due to ethflop using a single buffer for send/recv operations it needs a tiny bit of time to switch from 'sending' to 'receiving'. 0.5 ms should be enough even for the slowest PC (4MHz) and the crappiest packet driver (that would need 2000 cycles to return from sending a packet) */
     {
@@ -1073,13 +1187,22 @@ int main(int argc, char **argv) {
       nanot.tv_nsec = 500 * 1000; /* 1000 ns is 1 us. 1000 us is 1 ms */
       nanosleep(&nanot, NULL);
     }
-    len = send(datasock, &frame, sizeof(frame), 0);
-    clock_gettime(CLOCK_MONOTONIC, &tp2); /* get cur time */
+#ifdef __FreeBSD__
+    len = write(datasock, frame, sizeof(*frame));
+    if (len < 0) {
+      fprintf(stderr, "ERROR: write() returned %ld (%s)\n", len, strerror(errno));
+    } else if (len != sizeof(*frame)) {
+      fprintf(stderr, "ERROR: write() sent less than expected (%ld != %lu)\n", len, sizeof(*frame));
+    }
+#else
+    len = send(datasock, frame, sizeof(*frame), 0);
     if (len < 0) {
       fprintf(stderr, "ERROR: send() returned %ld (%s)\n", len, strerror(errno));
-    } else if (len != sizeof(frame)) {
-      fprintf(stderr, "ERROR: send() sent less than expected (%ld != %lu)\n", len, sizeof(frame));
+    } else if (len != sizeof(*frame)) {
+      fprintf(stderr, "ERROR: send() sent less than expected (%ld != %lu)\n", len, sizeof(*frame));
     }
+#endif
+    clock_gettime(CLOCK_MONOTONIC, &tp2); /* get cur time */
     { /* compute answer time */
       long msec;
       msec = (tp2.tv_sec - tp1.tv_sec) * 1000;
