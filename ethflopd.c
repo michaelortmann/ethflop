@@ -1114,11 +1114,6 @@ int main(int argc, char **argv) {
     if (len != sizeof(*frame)) continue; /* restart if size not what I expect or negative */
     /* validate this is for me (or broadcast) */
     if ((memcmp(mymac, frame->dmac, 6) != 0) && (memcmp("\xff\xff\xff\xff\xff\xff", frame->dmac, 6) != 0)) continue; /* skip anything that is not for me */
-    /* is this valid ethertype ?*/
-    if (((sock == datasock) && (frame->etype != htons(ETHERTYPE_DATA))) || ((sock == ctrlsock) && (frame->etype != htons(ETHERTYPE_CTRL)))) {
-      fprintf(stderr, "Error: Received invalid ethertype frame (0x%u)\n", ntohs(frame->etype));
-      continue;
-    }
     /* */
   #if DEBUG > 0
     DBG("Received frame from %s\n", printmac(frame->smac));
