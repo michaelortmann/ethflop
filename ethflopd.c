@@ -27,7 +27,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>           /* fcntl(), open() */
-#if defined __FreeBSD__ || defined __OpenBSD__
+#if defined __FreeBSD__ || defined __OpenBSD__ || defined __NetBSD__
   #include <sys/types.h>     /* u_char */
   #include <net/bpf.h>       /* BIOCSETIF */
   #include <net/if_dl.h>     /* LLADDR */
@@ -40,7 +40,7 @@
 #include <fnmatch.h>
 #include <limits.h>          /* PATH_MAX and such */
 #include <net/if.h>
-#ifdef __OpenBSD__
+#if defined __OpenBSD__ || defined __NetBSD__
   #include <netinet/if_ether.h>
 #else
   #include <net/ethernet.h>
@@ -770,7 +770,7 @@ static int process_ctrl(struct FRAME *frame, const unsigned char *mymac, const c
 static int raw_sock(const int protocol, const char *const interface, void *const hwaddr) {
   struct ifreq iface;
   int socketfd, fl;
-#if defined __FreeBSD__ || defined __OpenBSD__
+#if defined __FreeBSD__ || defined __OpenBSD__ || defined __NetBSD__
   #define PATH_BPF "/dev/bpf"
   int i = 0;
   char filename[sizeof PATH_BPF "-9223372036854775808"]; /* 29 */
@@ -803,7 +803,7 @@ static int raw_sock(const int protocol, const char *const interface, void *const
     errno = EINVAL;
     return(-1);
   }
-#if defined __FreeBSD__ || defined __OpenBSD__
+#if defined __FreeBSD__ || defined __OpenBSD__ || defined __NetBSD__
   do {
     snprintf(filename, sizeof(filename), PATH_BPF "%i", i++);
     socketfd = open(filename, O_RDWR);
@@ -816,7 +816,7 @@ static int raw_sock(const int protocol, const char *const interface, void *const
   do {
     memset(&iface, 0, sizeof iface);
     strncpy(iface.ifr_name, interface, sizeof iface.ifr_name - 1);
-#if defined __FreeBSD__ || defined __OpenBSD__
+#if defined __FreeBSD__ || defined __OpenBSD__ || defined __NetBSD__
     if (ioctl(socketfd, BIOCSETIF, &iface) < 0) {
       DBG("ERROR: could not bind %s to %s: %s\n", filename, iface.ifr_name, strerror(errno));
       break;
@@ -968,7 +968,7 @@ static unsigned short cksum(struct FRAME *frame) {
 }
 
 static void help(void) {
-  printf("ethflopd version " PVER " | Copyright (C) 2019 Mateusz Viste\n"
+  printf("ethflopd version " PVER " | Copyright (C) 2019 Mateusz Viste, 2020 Michael Ortmann\n"
          "http://ethflop.sourceforge.net\n"
          "\n"
          "usage: ethflopd [options] interface storagedir\n"
@@ -1009,7 +1009,7 @@ int main(int argc, char **argv) {
   struct cliententry *clist = NULL, *ce;
   int daemon = 1; /* daemonize self by default */
   struct timespec tp1, tp2; /* used for calculating response time */
-#if defined __FreeBSD__ || defined __OpenBSD__
+#if defined __FreeBSD__ || defined __OpenBSD__ || defined __NetBSD__
   int bpf_len;
   unsigned char *bpf_buf;
   struct bpf_hdr *bf_hdr;
@@ -1079,7 +1079,7 @@ int main(int argc, char **argv) {
     }
   }
 
-#if defined __FreeBSD__ || defined __OpenBSD__
+#if defined __FreeBSD__ || defined __OpenBSD__ || defined __NetBSD__
   if (ioctl(datasock, BIOCGBLEN, &bpf_len) < 0) {
     DBG("ERROR1: could not get the required buffer length for reads on bpf files: %s\n", strerror(errno));
     return(1);
@@ -1088,6 +1088,7 @@ int main(int argc, char **argv) {
     DBG("ERROR: malloc(): %s\n", strerror(errno));
     return(1);
   }
+  bf_hdr = (struct bpf_hdr *) bpf_buf;
 #else
   if ((frame = (struct FRAME *) malloc(sizeof(*frame))) == NULL) {
     DBG("ERROR: malloc(): %s\n", strerror(errno));
@@ -1114,6 +1115,7 @@ int main(int argc, char **argv) {
 #else
     r = select(highestfd + 1, &fdset, NULL, NULL, NULL);
 #endif
+    clock_gettime(CLOCK_MONOTONIC, &tp1); /* get cur time for later calculation */
     if (!r)
       continue; /* timeout / heartbeat */
     if (r < 0) {
@@ -1126,13 +1128,11 @@ int main(int argc, char **argv) {
       sock = datasock;
     else
       sock = ctrlsock;
-    clock_gettime(CLOCK_MONOTONIC, &tp1); /* get cur time for later calculation */
-#if defined __FreeBSD__ || defined __OpenBSD__
+#if defined __FreeBSD__ || defined __OpenBSD__ || defined __NetBSD__
     if ((len = read(sock, bpf_buf, bpf_len)) < (int) sizeof (struct bpf_hdr)) {
       DBG("ERROR: read(): %s\n", strerror(errno));
       continue;
     }
-    bf_hdr = (struct bpf_hdr *) bpf_buf;
     frame = (struct FRAME *) (bpf_buf + bf_hdr->bh_hdrlen);
     len -= bf_hdr->bh_hdrlen;
 #else
@@ -1209,7 +1209,7 @@ int main(int argc, char **argv) {
       nanot.tv_nsec = 500 * 1000; /* 1000 ns is 1 us. 1000 us is 1 ms */
       nanosleep(&nanot, NULL);
     }
-#if defined __FreeBSD__ || defined __OpenBSD__
+#if defined __FreeBSD__ || defined __OpenBSD__ || defined __NetBSD__
     len = write(datasock, frame, sizeof(*frame));
     if (len < 0) {
       fprintf(stderr, "ERROR: write() returned %ld (%s)\n", len, strerror(errno));
@@ -1235,7 +1235,12 @@ int main(int argc, char **argv) {
         tp2.tv_nsec += 1000;
       }
       msec += (tp2.tv_nsec - tp1.tv_nsec);
-      if (msec > 10) fprintf(stderr, "WARNING: query took a long time to process (%ld ms)\n", msec);
+#if defined __OpenBSD__ || defined __NetBSD__
+      if (msec > 23)
+#else
+      if (msec > 10)
+#endif
+        fprintf(stderr, "WARNING: query took a long time to process (%ld ms)\n", msec);
     }
     DBG("---------------------------------\n");
   }
