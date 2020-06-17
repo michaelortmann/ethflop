@@ -26,8 +26,8 @@
 #include <arpa/inet.h>       /* htons() */
 #include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>           /* fcntl(), open() */
 #if defined __FreeBSD__ || defined __OpenBSD__
-  #include <fcntl.h>         /* open() */
   #include <sys/types.h>     /* u_char */
   #include <net/bpf.h>       /* BIOCSETIF */
   #include <net/if_dl.h>     /* LLADDR */
