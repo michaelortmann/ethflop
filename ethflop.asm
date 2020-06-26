@@ -375,7 +375,7 @@ call VGADBG
 %endif
 
 ; identify the int 13h query
-or ah, ah        ; test for ah == 0 (byte shorter than cmp ah, 0)
+test ah, ah ; test for ah == 0 (byte shorter than cmp ah, 0 and better than "or ah, ah" and "and ah, ah" as i learned from Peter Cordes)
 jz short HANDLERDONE   ; special case: RESET always succeeds, ah=0, nothing to do
 dec ah ; cmp ah, 0x01
 jne short ACTION_NOT_STATUSLASTOP
