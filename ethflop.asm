@@ -104,7 +104,7 @@ PKT_END:
 ; WARNING: this function must modify ONLY registers ES and DI! Packet drivers
 ; can get easily confused when any other register (or flag) is modified.
 PKTDRVR_RECV:
-or ax, ax   ; is ax=0? yes: packet on its way, not: packet received
+test ax, ax   ; is ax=0? yes: packet on its way, not: packet received
 jz short .PKTDRVR_RECV_PREP
 mov [cs:PKTBUFBUSY], byte 1   ; mark buffer as 'full' and return
 %if DBG = 2
@@ -375,7 +375,7 @@ call VGADBG
 %endif
 
 ; identify the int 13h query
-test ah, ah ; test for ah == 0 (byte shorter than cmp ah, 0 and better than "or ah, ah" and "and ah, ah" as i learned from Peter Cordes)
+test ah, ah ; test for ah == 0 (byte shorter than cmp ah, 0)
 jz short HANDLERDONE   ; special case: RESET always succeeds, ah=0, nothing to do
 dec ah ; cmp ah, 0x01
 jne short ACTION_NOT_STATUSLASTOP
@@ -447,7 +447,7 @@ mov [cs:LASTOPSTATUS], ah
 mov ss, [cs:ORIGSS]
 mov sp, [cs:ORIGSP]
 ; set CF in FLAGS on stack if ah != 0
-or ah, ah    ; test for zero
+test ah, ah ; test for ah == 0 (byte shorter than cmp ah, 0)
 jz short .ALLESGUT
 push bp
 mov bp, sp
@@ -551,7 +551,7 @@ xor cx, cx
 mov cl, [80h]
 cmp cl, 32      ; is arg len > 32 ?
 ja HELP         ; must be invalid, go to help
-or cx, cx       ; is arg len 0 ?
+test cx, cx     ; is arg len 0 ?
 jz HELP         ; if so, skip this check and go to help right away
 mov si, 81h     ; otherwise scan argument for anything that is not a space
 .nextbyte:
