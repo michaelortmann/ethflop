@@ -1,11 +1,11 @@
 #
-# ethflopd makefile for FreeBSD, OpenBSD and Linux
+# ethflopd makefile for BSD and Linux
 # http://ethflop.sourceforge.net
 #
 # Copyright (C) 2019 Mateusz Viste
 # Copyright (c) 2020 Michael Ortmann
 #
-# make        - builds ethflopd (FreeBSD / OpenBSD / Linux daemon)
+# make        - builds ethflopd (BSD / Linux daemon)
 # make tsr    - builds ethflop.com (DOS TSR, requires NASM)
 # make test   - builds the test app (requires tcc 2.01)
 #

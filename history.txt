@@ -1,8 +1,5 @@
-version 20200618
- - ported to NetBSD
- - ported to OpenBSD
- - ported to FreeBSD
- - ported to musl / Alpine Linux
+version 20200627
+ - ported to FreeBSD, DragonFly, OpenBSD, NetBSD and musl / Alpine Linux
 
 version xxxxxxx:
  - added support for DMF (1.68M and 1.72M) floppy images

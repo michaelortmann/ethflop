@@ -5,13 +5,13 @@
 === WHAT IS IT? ==============================================================
 
 ethflop is a DOS TSR that emulates a floppy disk drive. The emulated (virtual)
-floppy disk is, in fact, stored on a FreeBSD, OpenBSD or Linux server as a
-floppy image. All the communication between ethflop (the TSR) and ethflopd
-(the FreeBSD / OpenBSD / Linux daemon) is exchanged over raw Ethernet. No need
-for any network configuration - the DOS PC only needs to have some kind of
-Ethernet adapter (physical or emulated, for example through PLIP) and a
-suitable packet driver. The FreeBSD, OpenBSD or Linux server and the DOS PC
-must be connected to a common Ethernet segment (same LAN).
+floppy disk is, in fact, stored on a BSD or Linux server as a floppy image.
+All the communication between ethflop (the TSR) and ethflopd (the BSD / Linux
+daemon) is exchanged over raw Ethernet. No need for any network configuration
+- the DOS PC only needs to have some kind of Ethernet adapter (physical or
+emulated, for example through PLIP) and a suitable packet driver. The BSD or
+Linux server and the DOS PC must be connected to a common Ethernet segment
+(same LAN).
 
 Shortly said, ethflop:
  - emulates many types of floppies (360K, 720K, 1.2M, 1.44M... up to 31M)
@@ -37,8 +37,8 @@ flavours.
 
 Quick-start instructions:
 
-1. compile the ethflopd daemon on your FreeBSD, OpenBSD or Linux machine (type
-   "make" on FreeBSD or Linux or "gmake" on OpenBSD)
+1. compile the ethflopd daemon on your BSD or Linux machine (type "make" on
+   BSD or Linux or "gmake" on OpenBSD)
 2. run the ethflopd executable as root: # ./ethflopd eth0 /var/floppies
    (where eth0 is the system name of your network interface and /var/floppies
    is the directory where virtual floppy disks will be stored)
@@ -56,8 +56,8 @@ For the ethflop TSR:
  - an 8088+ CPU and 4K of available RAM
  - some kind of Ethernet adapter and its packet driver
 
-For the ethflopd FreeBSD / OpenBSD / Linux daemon:
- - a reasonably recent FreeBSD, OpenBSD or Linux machine
+For the ethflopd BSD / Linux daemon:
+ - a reasonably recent BSD or Linux machine
  - the GCC or CLANG compiler and GNU make
 
 === ORIGINS ==================================================================
@@ -94,7 +94,7 @@ The ethflop solution is originally distributed with the following files:
 ETHFLOP.ASM   source code of the TSR (x86 assembly, NASM)
 ETHFLOP.COM   the DOS TSR program
 ETHFLOP.TXT   documentation file (you are reading it)
-ETHFLOPD.C    source code of the FreeBSD / OpenBSD / Linux daemon
+ETHFLOPD.C    source code of the BSD / Linux daemon
 MAKEFILE      build instructions for GNU make
 
 === QUESTIONS & BUG REPORTS ==================================================
