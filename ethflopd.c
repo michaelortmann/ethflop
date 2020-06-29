@@ -23,7 +23,7 @@
  * IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#if defined(__FreeBSD__) || defined(__DragonFly__) || defined(__OpenBSD__) || defined(__NetBSD__)
+#if defined(__FreeBSD__) || defined(__DragonFly__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined __APPLE__
   #define __BSD__
 #endif
 
@@ -35,10 +35,16 @@
   #include <sys/types.h>     /* u_char */
   #include <net/bpf.h>       /* BIOCSETIF */
   #include <net/if_dl.h>     /* LLADDR */
-  #include <sys/endian.h>
+  #ifdef __APPLE__
+    #include <libkern/OSByteOrder.h>
+    #define htole16(x) OSSwapHostToLittleInt16(x)
+    #define le16toh(x) OSSwapLittleToHostInt16(x)
+  #else
+    #include <sys/endian.h>  /* htole16(), le16toh() */
+  #endif 
   #include <sys/sysctl.h>
 #else
-  #include <endian.h>        /* le16toh(), le32toh() */
+  #include <endian.h>        /* htole16(), le16toh() */
   #include <netpacket/packet.h> /* sockaddr_ll */
 #endif
 #include <fnmatch.h>

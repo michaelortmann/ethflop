@@ -4,8 +4,9 @@ Description:
   floppy disk is, in fact, stored on a BSD or Linux server as a floppy image.
 
   This is version https://sourceforge.net/p/ethflop/code/67/tree/trunk plus
-  port to FreeBSD, DragonFly, OpenBSD, NetBSD and musl / Alpine Linux, reduced
-  DOS TSR resident footprint (2016 -> 1984 bytes) and some other patches by me.
+  port to FreeBSD, DragonFly, OpenBSD, NetBSD, musl / Alpine Linux and macOS,
+  reduced DOS TSR resident footprint (2016 -> 1984 bytes) and some other patches
+  by me.
 
 License:
 
