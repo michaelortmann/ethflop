@@ -1,6 +1,6 @@
 /*
  * ethflopd is serving files through the ethflop protocol. Runs on FreeBSD,
- * OpenBSD and Linux.
+ * DragonFly, OpenBSD, NetBSD, Linux and macOS.
  *
  * http://ethflop.sourceforge.net
  *
